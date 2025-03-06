@@ -22,11 +22,6 @@ jobs:
         with:
           fetch-depth: 0  # This is important to get all the history for proper diffing
       
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.23.3'
-      
       - name: Install SOPS
         run: |
           wget https://github.com/getsops/sops/releases/download/v3.8.1/sops-v3.8.1.linux.amd64 -O /usr/local/bin/sops
@@ -34,10 +29,9 @@ jobs:
       
       - name: Install sops-diff
         run: |
-          # You can use pre-built binaries or install from source
-          # For this example, we'll assume sops-diff is available as a release
-          wget https://github.com/saltydogtechnology/sops-diff/releases/latest/download/sops-diff-linux-amd64 -O /usr/local/bin/sops-diff
-          chmod +x /usr/local/bin/sops-diff
+          curl -L https://github.com/saltydogtechnology/sops-diff/releases/download/v0.1.0/sops-diff-v0.1.0-linux-amd64.tar.gz | tar xz
+          chmod +x sops-diff-linux-amd64
+          mv sops-diff-linux-amd64 /usr/local/bin/sops-diff
       
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -46,34 +40,58 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
       
-      - name: Generate diffs for encrypted files
-        id: generate-diffs
+      - name: Get list of changed encrypted files
+        id: get-files
         run: |
+          # Get the base branch and head branch references
+          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+          HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
+          
           # Get list of modified encrypted files
           CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep -E '\.enc\.(json|yaml|yml|env)$' || echo "")
           
           if [ -z "$CHANGED_FILES" ]; then
             echo "No encrypted files changed in this PR."
+            echo "changed_files=" >> $GITHUB_OUTPUT
             exit 0
           fi
+          
+          # Save list of files and branch references for the next step
+          echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "base_branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
+          echo "head_branch=$HEAD_BRANCH" >> $GITHUB_OUTPUT
+          
+          echo "Changed encrypted files:"
+          echo "$CHANGED_FILES"
+      
+      - name: Generate SOPS diffs
+        id: generate-diffs
+        if: steps.get-files.outputs.changed_files != ''
+        run: |
+          # Get data from previous step
+          BASE_BRANCH="${{ steps.get-files.outputs.base_branch }}"
+          HEAD_BRANCH="${{ steps.get-files.outputs.head_branch }}"
+          CHANGED_FILES="${{ steps.get-files.outputs.changed_files }}"
           
           # Create a directory for the diff outputs
           mkdir -p /tmp/sops-diffs
           
-          # Generate diff for each changed file
           echo "::group::SOPS Encrypted File Diffs"
           for FILE in $CHANGED_FILES; do
             echo "Processing diff for $FILE"
             
-            # Generate both a summary diff and a full diff
+            # Generate both a summary diff and a full diff using branch comparison
             DIFF_OUTPUT_FILE="/tmp/sops-diffs/${FILE//\//_}.diff"
             SUMMARY_OUTPUT_FILE="/tmp/sops-diffs/${FILE//\//_}.summary.diff"
             
-            # Create full diff
-            sops-diff ${{ github.event.pull_request.base.sha }}:$FILE $FILE > "$DIFF_OUTPUT_FILE" || true
+            # Create full diff using branch comparison
+            sops-diff --git origin/${BASE_BRANCH}:${FILE} origin/${HEAD_BRANCH}:${FILE} > "$DIFF_OUTPUT_FILE" 2>/dev/null
             
-            # Create summary diff
-            sops-diff --summary ${{ github.event.pull_request.base.sha }}:$FILE $FILE > "$SUMMARY_OUTPUT_FILE" || true
+            # Create summary diff using branch comparison
+            sops-diff --git --summary origin/${BASE_BRANCH}:${FILE} origin/${HEAD_BRANCH}:${FILE} > "$SUMMARY_OUTPUT_FILE" 2>/dev/null
             
             echo "Generated diff for $FILE"
           done
@@ -88,14 +106,17 @@ jobs:
           
           for FILE in $CHANGED_FILES; do
             SUMMARY_OUTPUT_FILE="/tmp/sops-diffs/${FILE//\//_}.summary.diff"
-            DIFF_OUTPUT_FILE="/tmp/sops-diffs/${FILE//\//_}.diff"
             
             # Add file header
             echo "#### $FILE" >> $GITHUB_ENV
             echo '```diff' >> $GITHUB_ENV
             
             # Add summary content (keys only, safer for public viewing)
-            cat "$SUMMARY_OUTPUT_FILE" >> $GITHUB_ENV
+            if [ -f "$SUMMARY_OUTPUT_FILE" ] && [ -s "$SUMMARY_OUTPUT_FILE" ]; then
+              cat "$SUMMARY_OUTPUT_FILE" >> $GITHUB_ENV
+            else
+              echo "No significant changes detected or error generating diff." >> $GITHUB_ENV
+            fi
             echo '```' >> $GITHUB_ENV
             echo '' >> $GITHUB_ENV
           done
@@ -104,6 +125,7 @@ jobs:
           echo 'EOF' >> $GITHUB_ENV
       
       - name: Comment on PR
+        if: steps.get-files.outputs.changed_files != ''
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
