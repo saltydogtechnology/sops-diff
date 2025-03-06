@@ -1,0 +1,119 @@
+name: SOPS-Diff PR Integration
+
+on:
+  pull_request:
+    paths:
+      - '**.enc.yaml'
+      - '**.enc.yml'
+      - '**.enc.json'
+      - '**.enc.env'
+
+jobs:
+  sops-diff:
+    runs-on: ubuntu-latest
+    # These permissions are needed to write PR comments
+    permissions:
+      contents: read
+      pull-requests: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # This is important to get all the history for proper diffing
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.3'
+      
+      - name: Install SOPS
+        run: |
+          wget https://github.com/getsops/sops/releases/download/v3.8.1/sops-v3.8.1.linux.amd64 -O /usr/local/bin/sops
+          chmod +x /usr/local/bin/sops
+      
+      - name: Install sops-diff
+        run: |
+          # You can use pre-built binaries or install from source
+          # For this example, we'll assume sops-diff is available as a release
+          wget https://github.com/saltydogtechnology/sops-diff/releases/latest/download/sops-diff-linux-amd64 -O /usr/local/bin/sops-diff
+          chmod +x /usr/local/bin/sops-diff
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Generate diffs for encrypted files
+        id: generate-diffs
+        run: |
+          # Get list of modified encrypted files
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep -E '\.enc\.(json|yaml|yml|env)$' || echo "")
+          
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No encrypted files changed in this PR."
+            exit 0
+          fi
+          
+          # Create a directory for the diff outputs
+          mkdir -p /tmp/sops-diffs
+          
+          # Generate diff for each changed file
+          echo "::group::SOPS Encrypted File Diffs"
+          for FILE in $CHANGED_FILES; do
+            echo "Processing diff for $FILE"
+            
+            # Generate both a summary diff and a full diff
+            DIFF_OUTPUT_FILE="/tmp/sops-diffs/${FILE//\//_}.diff"
+            SUMMARY_OUTPUT_FILE="/tmp/sops-diffs/${FILE//\//_}.summary.diff"
+            
+            # Create full diff
+            sops-diff ${{ github.event.pull_request.base.sha }}:$FILE $FILE > "$DIFF_OUTPUT_FILE" || true
+            
+            # Create summary diff
+            sops-diff --summary ${{ github.event.pull_request.base.sha }}:$FILE $FILE > "$SUMMARY_OUTPUT_FILE" || true
+            
+            echo "Generated diff for $FILE"
+          done
+          echo "::endgroup::"
+          
+          # Prepare comment content
+          echo 'COMMENT<<EOF' >> $GITHUB_ENV
+          echo '### SOPS-Diff Report for Encrypted Files 🔒' >> $GITHUB_ENV
+          echo '' >> $GITHUB_ENV
+          echo 'The following encrypted files were modified in this PR:' >> $GITHUB_ENV
+          echo '' >> $GITHUB_ENV
+          
+          for FILE in $CHANGED_FILES; do
+            SUMMARY_OUTPUT_FILE="/tmp/sops-diffs/${FILE//\//_}.summary.diff"
+            DIFF_OUTPUT_FILE="/tmp/sops-diffs/${FILE//\//_}.diff"
+            
+            # Add file header
+            echo "#### $FILE" >> $GITHUB_ENV
+            echo '```diff' >> $GITHUB_ENV
+            
+            # Add summary content (keys only, safer for public viewing)
+            cat "$SUMMARY_OUTPUT_FILE" >> $GITHUB_ENV
+            echo '```' >> $GITHUB_ENV
+            echo '' >> $GITHUB_ENV
+          done
+          
+          echo 'For security reasons, only key changes are shown in this comment. Reviewers should check the actual values.' >> $GITHUB_ENV
+          echo 'EOF' >> $GITHUB_ENV
+      
+      - name: Comment on PR
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const comment = process.env.COMMENT;
+            if (comment && comment !== 'COMMENT') {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }

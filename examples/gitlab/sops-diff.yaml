@@ -1,0 +1,25 @@
+sops-diff:
+  stage: review
+  image: golang:1.23.3
+  script:
+    - go install github.com/saltydogtechnology/sops-diff@latest
+    - apt-get update && apt-get install -y git
+    - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+    - |
+      CHANGED_FILES=$(git diff --name-only $CI_MERGE_REQUEST_TARGET_BRANCH_NAME...HEAD | grep -E '\.enc\.(json|yaml|yml|env) || echo "")
+      if [ -n "$CHANGED_FILES" ]; then
+        echo "## SOPS-Diff Report for Encrypted Files" >> sops_diff.md
+        echo "" >> sops_diff.md
+        for FILE in $CHANGED_FILES; do
+          echo "### $FILE" >> sops_diff.md
+          echo '```diff' >> sops_diff.md
+          sops-diff --summary origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME:$FILE $FILE >> sops_diff.md || true
+          echo '```' >> sops_diff.md
+        done
+      fi
+  artifacts:
+    paths:
+      - sops_diff.md
+    when: always
+  only:
+    - merge_requests
