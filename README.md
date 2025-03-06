@@ -27,25 +27,26 @@ SOPS-Diff addresses a common challenge in secure code review: reviewing changes 
 
 ## Installation
 
-### From Binary Releases
+For detailed installation instructions for different platforms, please refer to [INSTALLATION.md](INSTALLATION.md).
 
-```bash
-# For Linux (amd64)
-curl -L https://github.com/saltydogtechnology/sops-diff/releases/latest/download/sops-diff-linux-amd64 -o /usr/local/bin/sops-diff
-chmod +x /usr/local/bin/sops-diff
+### Quick Start
 
-# For macOS (amd64)
-curl -L https://github.com/saltydogtechnology/sops-diff/releases/latest/download/sops-diff-darwin-amd64 -o /usr/local/bin/sops-diff
-chmod +x /usr/local/bin/sops-diff
-
-# For Windows (amd64)
-# Download from https://github.com/saltydogtechnology/sops-diff/releases/latest/download/sops-diff-windows-amd64.exe
+```
+# Linux (amd64)
+curl -L https://github.com/saltydogtechnology/sops-diff/releases/download/v0.1.0/sops-diff-v0.1.0-linux-amd64.tar.gz | tar xz
+sudo mv sops-diff-linux-amd64 /usr/local/bin/sops-diff
 ```
 
-### From Source
+```
+# macOS (amd64)
+curl -L https://github.com/saltydogtechnology/sops-diff/releases/download/v0.1.0/sops-diff-v0.1.0-darwin-amd64.tar.gz | tar xz
+sudo mv sops-diff-darwin-amd64 /usr/local/bin/sops-diff
+```
 
-```bash
-go install github.com/saltydogtechnology/sops-diff@latest
+```
+# macOS (Apple Silicon)
+curl -L https://github.com/saltydogtechnology/sops-diff/releases/download/v0.1.0/sops-diff-v0.1.0-darwin-arm64.tar.gz | tar xz
+sudo mv sops-diff-darwin-arm64 /usr/local/bin/sops-diff
 ```
 
 ## Usage

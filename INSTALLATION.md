@@ -57,6 +57,18 @@ brew tap saltydogtechnology/sops-diff
 brew install sops-diff
 ```
 
+#### Windows
+
+1. Download the appropriate binary from the [releases page](https://github.com/saltydogtechnology/sops-diff/releases)
+   - For 64-bit systems: `sops-diff-windows-amd64.exe`
+
+2. Rename the file to `sops-diff.exe`
+
+3. Add the file to a location in your PATH:
+   - Create a directory like `C:\Tools` if it doesn't exist
+   - Move `sops-diff.exe` to this directory
+   - Add the directory to your PATH environment variable
+
 ### Method 2: Building from Source
 
 If you prefer to build from source, follow these steps:
