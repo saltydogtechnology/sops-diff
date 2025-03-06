@@ -8,13 +8,14 @@ This guide provides comprehensive instructions for using the SOPS-Diff utility f
 sops-diff [flags] FILE1 FILE2
 
 Flags:
-  -s, --summary        Display only keys that have changed, without sensitive values
-  -f, --format string  Output format: auto, yaml, json, env (default "auto")
-  -c, --color          Use colored output when supported (default true)
-  -d, --diff-tool      Use an external diff tool (e.g. 'vimdiff')
-  -g, --git            Enable Git revision comparison support
-  -h, --help           Help for sops-diff
-  -v, --version        Version for sops-diff
+  -c, --color                Use colored output when supported (default true)
+  -d, --diff-tool string     Use an external diff tool (e.g. 'vimdiff')
+      --error-on-decrypted   Return error if any file is found to be decrypted (default true)
+  -f, --format string        Output format: auto, yaml, json, env (default "auto")
+  -g, --git                  Enable Git revision comparison support
+  -h, --help                 help for sops-diff
+  -s, --summary              Display only keys that have changed, without sensitive values
+  -v, --version              version for sops-diff
 ```
 
 ## Basic Usage

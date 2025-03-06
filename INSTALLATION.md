@@ -131,6 +131,11 @@ To set up Git integration, follow these steps:
    git config diff.sopsdiffer.command "sops-diff --git --summary"
    ```
 
+   ```bash
+   # Option 3: Allow viewing diffs of decrypted files (disable the default safety feature)
+   git config diff.sopsdiffer.command "sops-diff --git --error-on-decrypted=false"
+   ```
+
 ## Troubleshooting
 
 ### Common Issues
@@ -146,6 +151,10 @@ To set up Git integration, follow these steps:
 
 3. **Format detection issues**
    - Use the `--format` flag to explicitly specify the file format
+
+4. **Decrypted file errors**
+   - By default, sops-diff errors when it detects decrypted files
+   - Use `--error-on-decrypted=false` to disable this safety feature when needed
 
 ### Getting Help
 

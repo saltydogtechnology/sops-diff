@@ -20,6 +20,10 @@ SOPS-Diff addresses a common challenge in secure code review: reviewing changes 
 - **Security-Focused**:
   - No decrypted content written to disk
   - Minimized exposure of secrets
+- **Security-Focused**:
+  - No decrypted content written to disk
+  - Minimized exposure of secrets
+  - Automatic detection and warning for decrypted files
 
 ## Installation
 
