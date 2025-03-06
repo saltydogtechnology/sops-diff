@@ -20,9 +20,6 @@ SOPS-Diff addresses a common challenge in secure code review: reviewing changes 
 - **Security-Focused**:
   - No decrypted content written to disk
   - Minimized exposure of secrets
-- **Security-Focused**:
-  - No decrypted content written to disk
-  - Minimized exposure of secrets
   - Automatic detection and warning for decrypted files
 
 ## Installation
@@ -150,7 +147,6 @@ See the [GitLab CI Configuration](./examples/gitlab/sops-diff.yaml) file for det
 
 ## Requirements
 
-- Go 1.17 or higher
 - SOPS v3.7.x or higher
 - For Git integration: Git 2.20.0 or higher
 
