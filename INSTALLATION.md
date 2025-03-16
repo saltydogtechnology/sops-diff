@@ -20,7 +20,7 @@ Before installing SOPS-Diff, ensure you have:
 #### Linux
 
 ```bash
-export SOPS_DIFF_VERSION=v0.1.0
+export SOPS_DIFF_VERSION=v0.1.1
 ```
 
 ```bash
@@ -38,7 +38,7 @@ sudo mv sops-diff-linux-arm64 /usr/local/bin/sops-diff
 #### macOS
 
 ```bash
-export SOPS_DIFF_VERSION=v0.1.0
+export SOPS_DIFF_VERSION=v0.1.1
 ```
 
 ```bash

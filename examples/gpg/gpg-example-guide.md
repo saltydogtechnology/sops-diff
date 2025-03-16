@@ -96,22 +96,22 @@ sops -e -i .env
 ```bash
 # Example with YAML
 sops -d secrets.yaml > secrets_temp.yaml
-sed -i 's/super_secret_password/new_password_123/' secrets_temp.yaml  # Linux
-# Or: sed -i '' 's/super_secret_password/new_password_123/' secrets_temp.yaml  # macOS
+# sed -i 's/super_secret_password/new_password_123/' secrets_temp.yaml  # Linux
+sed -i '' 's/super_secret_password/new_password_123/' secrets_temp.yaml  # macOS
 sops -e secrets_temp.yaml > secrets_new.yaml
 rm secrets_temp.yaml
 
 # Example with JSON
 sops -d secrets.json > secrets_temp.json
-sed -i 's/super_secret_password/new_password_123/' secrets_temp.json  # Linux
-# Or: sed -i '' 's/super_secret_password/new_password_123/' secrets_temp.json  # macOS
+# sed -i 's/super_secret_password/new_password_123/' secrets_temp.json  # Linux
+sed -i '' 's/super_secret_password/new_password_123/' secrets_temp.json  # macOS
 sops -e secrets_temp.json > secrets_new.json
 rm secrets_temp.json
 
 # Example with .env
 sops -d .env > env_temp
-sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=new_password_123/' env_temp  # Linux
-# Or: sed -i '' 's/DB_PASSWORD=.*/DB_PASSWORD=new_password_123/' env_temp  # macOS
+# sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=new_password_123/' env_temp  # Linux
+sed -i '' 's/DB_PASSWORD=.*/DB_PASSWORD=new_password_123/' env_temp  # macOS
 sops -e env_temp > env_new
 rm env_temp
 ```
