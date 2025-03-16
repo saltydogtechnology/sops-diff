@@ -14,8 +14,13 @@ Flags:
   -f, --format string        Output format: auto, yaml, json, env (default "auto")
   -g, --git                  Enable Git revision comparison support
   -h, --help                 help for sops-diff
+  -o, --output string        Save output to file instead of printing to stdout
   -s, --summary              Display only keys that have changed, without sensitive values
   -v, --version              version for sops-diff
+
+Commands:
+  git-conflicts FILE        Resolve Git merge conflicts in SOPS-encrypted files
+  setup-git-merge-tool      Configure Git to use sops-diff for merge conflict resolution
 ```
 
 ## Basic Usage
@@ -53,6 +58,60 @@ sops-diff --format=yaml config1.enc.yaml config2.enc.yaml
 sops-diff --format=env .env.enc .env.prod.enc
 ```
 
+### Saving Output to File
+
+By default, SOPS-Diff displays results in the terminal, but you can save the output to a file:
+
+```bash
+sops-diff file1.enc.yaml file2.enc.yaml --output diff.txt
+```
+
+## Git Merge Conflict Resolution
+
+SOPS-Diff provides specialized functionality for handling merge conflicts in encrypted files.
+
+### Manual Conflict Resolution
+
+When you encounter a merge conflict in an encrypted file:
+
+```bash
+# By default, output to terminal with colored markers
+sops-diff git-conflicts conflicts.enc.yaml
+
+# Save decrypted conflict to a file for editing
+sops-diff git-conflicts conflicts.enc.yaml --output conflicts.decrypted.yaml
+```
+
+The decrypted output will include conflict markers with branch names where available:
+
+```
+<<<<<<< HEAD (main branch)
+SECRET_KEY: value_from_current_branch
+=======
+SECRET_KEY: value_from_other_branch
+>>>>>>> OTHER (incoming changes from feature/branch)
+```
+
+### Setting Up Git Integration
+
+To configure Git to automatically use SOPS-Diff for merge conflicts:
+
+```bash
+# Set up Git configuration
+sops-diff setup-git-merge-tool
+
+# Add to your .gitattributes file
+*.enc.yaml merge=sops
+*.enc.json merge=sops
+*.enc.env merge=sops
+```
+
+After setup, you can use Git's standard mergetool command:
+
+```bash
+git mergetool --tool=sops
+```
+
 ## Advanced Usage
 
 ### Git Integration
@@ -71,34 +130,6 @@ sops-diff main:secrets.enc.yaml feature/new-config:secrets.enc.yaml
 # Compare between specific commits
 sops-diff abc1234:secrets.enc.yaml def5678:secrets.enc.yaml
 ```
-
-#### Setting Up Git Integration
-
-1. Configure Git attributes:
-
-   Add to your `.gitattributes` file:
-   ```
-   *.enc.json diff=sopsdiffer
-   *.enc.yaml diff=sopsdiffer
-   *.enc.yml diff=sopsdiffer
-   *.enc.env diff=sopsdiffer
-   ```
-
-2. Configure Git to use SOPS-Diff:
-
-   ```bash
-   # Option 1: Full diff (shows all values)
-   git config diff.sopsdiffer.command "sops-diff --git"
-   ```
-
-   ```bash
-   # Option 2: Summary mode (only shows which keys changed without revealing values)
-   # This is more secure for public code reviews or when working in environments
-   # where you want to avoid exposing sensitive data
-   git config diff.sopsdiffer.command "sops-diff --git --summary"
-   ```
-
-3. Now `git diff` will automatically use SOPS-Diff for encrypted files.
 
 ### Using External Diff Tools
 
@@ -141,35 +172,29 @@ Output will show:
 +NEW_SECRET: "xyz789..."
 ```
 
-### Case 2: Reviewing PR Changes
+### Case 2: Resolving Merge Conflicts
 
-When reviewing changes in a pull request:
-
-```bash
-# Use summary mode for public PR reviews
-sops-diff --summary origin/main:secrets.enc.yaml feature/update-secrets:secrets.enc.yaml
-```
-
-Output will only show key changes:
-```diff
---- a/secrets.enc.yaml
-+++ b/secrets.enc.yaml
-@@ -1,4 +1,4 @@
- API_KEY
- DATABASE_URL
--OLD_SECRET
-+NEW_SECRET
-```
-
-### Case 3: Comparing Different Environments
-
-Compare secrets between environments:
+When resolving merge conflicts in encrypted files:
 
 ```bash
-sops-diff staging/secrets.enc.yaml production/secrets.enc.yaml
-```
+# After a merge conflict in Git
+git merge feature/update-secrets
+# [CONFLICT] Merge conflict in secrets.enc.yaml
 
-This helps identify configuration differences between environments.
+# Decrypt and view the conflict
+sops-diff git-conflicts secrets.enc.yaml
+
+# Output shows decrypted content with colored conflict markers
+# Edit and resolve manually, or save to file for editing
+sops-diff git-conflicts secrets.enc.yaml --output decrypted.yaml
+
+# Edit decrypted.yaml to resolve conflicts
+# Then encrypt and complete the merge
+sops -e -i decrypted.yaml
+mv decrypted.yaml.enc secrets.enc.yaml
+git add secrets.enc.yaml
+git merge --continue
+```
 
 ## CI/CD Integration Examples
 
@@ -181,7 +206,7 @@ For a GitHub Actions workflow that comments on PRs with encrypted file changes:
 # In your workflow
 - name: Generate SOPS diff
   run: |
-    sops-diff --summary ${{ github.event.pull_request.base.sha }}:secrets.enc.yaml secrets.enc.yaml > diff.txt
+    sops-diff --summary ${{ github.event.pull_request.base.sha }}:secrets.enc.yaml secrets.enc.yaml --output diff.txt
     
 - name: Comment on PR
   uses: actions/github-script@v6
@@ -196,18 +221,6 @@ For a GitHub Actions workflow that comments on PRs with encrypted file changes:
         repo: context.repo.repo,
         body: '### SOPS-Diff Summary\n```diff\n' + diff + '\n```'
       });
-```
-
-### GitLab CI
-
-For GitLab CI integration:
-
-```yaml
-# In your .gitlab-ci.yml
-sops-diff-job:
-  script:
-    - sops-diff --summary origin/main:secrets.enc.yaml secrets.enc.yaml > diff.txt
-    - 'curl --request POST --header "PRIVATE-TOKEN: $CI_API_TOKEN" --data-urlencode "body=### SOPS-Diff Summary\n```diff\n$(cat diff.txt)\n```" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${CI_MERGE_REQUEST_IID}/notes"'
 ```
 
 ## Working with Different Formats
@@ -232,23 +245,25 @@ sops-diff .env.enc .env.prod.enc
 
 ## Tips and Best Practices
 
-1. **Use summary mode for public code reviews**
-   - `--summary` flag shows only key changes, not values
-
-2. **Use color output for better readability**
+1. **Use colored output for better readability**
    - The `--color` flag is enabled by default for terminal output
+   - Colors are automatically disabled when output is redirected
 
-3. **When using Git integration, ensure you have access to the necessary keys**
+2. **Use subcommand flags correctly**
+   - Flags for subcommands must be placed after the subcommand
+   - Example: `sops-diff git-conflicts file.yaml --output out.yaml`
+
+3. **For merge conflicts, get branch information**
+   - The `git-conflicts` command shows branch names in conflict markers when available
+
+4. **Use output files for sensitive content**
+   - `--output` flag redirects content to a file instead of displaying on screen
+
+5. **Remember to clean up decrypted files**
+   - Always delete decrypted files after use to avoid security risks
+
+6. **When using Git integration, ensure you have access to the necessary keys**
    - Git operations might need access to KMS or other key management systems
 
-4. **For large files, consider using an external diff tool**
+7. **For large files, consider using an external diff tool**
    - `--diff-tool=meld` or similar for better visualization
-
-5. **In CI/CD environments, use environment variables for key access**
-   - Set up `SOPS_KMS_ARN`, `SOPS_AGE_RECIPIENTS`, etc. in your CI environment
-
-6. **For complex diffs, pipe output to a file for easier review**
-   - `sops-diff file1.enc.yaml file2.enc.yaml > diff.txt`
-
-7. **When comparing files with many changes, use context to focus on specific sections**
-   - Consider using grep or other tools to focus on relevant parts of the diff

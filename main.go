@@ -20,7 +20,7 @@ import (
 
 const (
 	// Version of the sops-diff utility
-	Version = "0.1.0"
+	Version = "0.1.1"
 )
 
 var (
@@ -31,6 +31,8 @@ var (
 	diffTool         string
 	gitSupport       bool
 	errorOnDecrypted bool
+	gitConflicts     bool
+	outputFile       string
 )
 
 type DiffOptions struct {
@@ -40,6 +42,8 @@ type DiffOptions struct {
 	DiffTool         string
 	GitSupport       bool
 	ErrorOnDecrypted bool
+	GitConflicts     bool
+	OutputFile       string
 }
 
 func main() {
@@ -59,7 +63,9 @@ Examples:
   sops-diff --format=json secret1.enc.json secret2.enc.json
   sops-diff --format=env config1.env config2.env
 `,
-		Version: Version,
+		Version:            Version,
+		DisableFlagParsing: false,
+		TraverseChildren:   true,
 		// NOTE: Changed from ExactArgs(2) to handle Git diff arguments
 		RunE: func(cmd *cobra.Command, args []string) error {
 			options := DiffOptions{
@@ -67,8 +73,20 @@ Examples:
 				OutputFormat:     outputFormat,
 				ColorOutput:      colorOutput,
 				DiffTool:         diffTool,
+				GitConflicts:     gitConflicts,
 				GitSupport:       gitSupport,
 				ErrorOnDecrypted: errorOnDecrypted,
+				OutputFile:       outputFile,
+			}
+
+			// Check for the first arg that doesn't start with "-" to determine if it's a subcommand
+			for _, arg := range args {
+				if !strings.HasPrefix(arg, "-") && !strings.Contains(arg, ":") {
+					if _, err := os.Stat(arg); os.IsNotExist(err) {
+						return fmt.Errorf("unknown command %q for %q", arg, cmd.CommandPath())
+					}
+					break
+				}
 			}
 
 			// Handle Git diff invocation with special argument pattern
@@ -109,6 +127,41 @@ Examples:
 	rootCmd.Flags().StringVarP(&diffTool, "diff-tool", "d", "", "Use an external diff tool (e.g. 'vimdiff')")
 	rootCmd.Flags().BoolVarP(&gitSupport, "git", "g", false, "Enable Git revision comparison support")
 	rootCmd.Flags().BoolVar(&errorOnDecrypted, "error-on-decrypted", true, "Return error if any file is found to be decrypted")
+	rootCmd.Flags().StringVarP(&outputFile, "output", "o", "", "Save output to file instead of printing to stdout")
+
+	// Add a setup-git-merge-tool command
+	setupGitCmd := &cobra.Command{
+		Use:   "setup-git-merge-tool",
+		Short: "Configure Git to use sops-diff for merge conflict resolution",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return SetupGitMergeTool()
+		},
+	}
+	rootCmd.AddCommand(setupGitCmd)
+
+	// Add a git-conflicts command
+	conflictsCmd := &cobra.Command{
+		Use:   "git-conflicts FILE",
+		Short: "Resolve Git merge conflicts in SOPS-encrypted files",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			localOutputFile, _ := cmd.Flags().GetString("output")
+
+			options := DiffOptions{
+				SummaryMode:      summaryMode,
+				OutputFormat:     outputFormat,
+				ColorOutput:      colorOutput,
+				DiffTool:         diffTool,
+				GitSupport:       gitSupport,
+				ErrorOnDecrypted: errorOnDecrypted,
+				GitConflicts:     true,
+				OutputFile:       localOutputFile,
+			}
+			return HandleGitConflicts(args[0], options)
+		},
+	}
+	conflictsCmd.Flags().StringP("output", "o", "", "Save output to file instead of printing to stdout")
+	rootCmd.AddCommand(conflictsCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -364,7 +417,17 @@ func runDiff(file1Path, file2Path string, options DiffOptions) error {
 
 			// Generate and display the diff
 			diff := generateDiff(file1Path, file2Path, output1, output2, options)
-			fmt.Print(diff)
+			// Output to file or stdout
+			if options.OutputFile != "" {
+				err := ioutil.WriteFile(options.OutputFile, []byte(diff), 0644)
+				if err != nil {
+					return fmt.Errorf("error writing output to file %s: %w", options.OutputFile, err)
+				}
+				fmt.Fprintf(os.Stderr, "Output written to %s\n", options.OutputFile)
+			} else {
+				// Print to stdout
+				fmt.Print(diff)
+			}
 		}
 		return nil
 	}
@@ -435,7 +498,18 @@ func runDiff(file1Path, file2Path string, options DiffOptions) error {
 
 		// Generate and display the diff
 		diff := generateDiff(file1Path, file2Path, output1, output2, options)
-		fmt.Print(diff)
+
+		// Output to file or stdout
+		if options.OutputFile != "" {
+			err := ioutil.WriteFile(options.OutputFile, []byte(diff), 0644)
+			if err != nil {
+				return fmt.Errorf("error writing output to file %s: %w", options.OutputFile, err)
+			}
+			fmt.Fprintf(os.Stderr, "Output written to %s\n", options.OutputFile)
+		} else {
+			// Print to stdout
+			fmt.Print(diff)
+		}
 	}
 
 	return nil

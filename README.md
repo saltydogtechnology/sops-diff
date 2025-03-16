@@ -16,9 +16,13 @@ SOPS-Diff addresses a common challenge in secure code review: reviewing changes 
 - **Git Integration**:
   - Compare between Git revisions (e.g., `sops-diff --git HEAD:secrets.enc.yaml secrets.enc.yaml`)
   - Git attribute support for automatic invocation during `git diff`
-- **CI/CD Integration**: Generate diff reports in formats suitable for PR comments
+  - Resolve merge conflicts in encrypted files with `git-conflicts` command
+  - Set up custom Git merge tool for encrypted files with `setup-git-merge-tool` command
+- **Output Options**:
+  - Color-coded output for better readability in terminal
+  - Save results to file with `--output` flag
 - **Security-Focused**:
-  - No decrypted content written to disk
+  - No decrypted content written to disk by default
   - Minimized exposure of secrets
   - Automatic detection and warning for decrypted files
 
@@ -30,19 +34,19 @@ For detailed installation instructions for different platforms, please refer to 
 
 ```
 # Linux (amd64)
-curl -L https://github.com/saltydogtechnology/sops-diff/releases/download/v0.1.0/sops-diff-v0.1.0-linux-amd64.tar.gz | tar xz
+curl -L https://github.com/saltydogtechnology/sops-diff/releases/download/v0.1.1/sops-diff-v0.1.1-linux-amd64.tar.gz | tar xz
 sudo mv sops-diff-linux-amd64 /usr/local/bin/sops-diff
 ```
 
 ```
 # macOS (amd64)
-curl -L https://github.com/saltydogtechnology/sops-diff/releases/download/v0.1.0/sops-diff-v0.1.0-darwin-amd64.tar.gz | tar xz
+curl -L https://github.com/saltydogtechnology/sops-diff/releases/download/v0.1.1/sops-diff-v0.1.1-darwin-amd64.tar.gz | tar xz
 sudo mv sops-diff-darwin-amd64 /usr/local/bin/sops-diff
 ```
 
 ```
 # macOS (Apple Silicon)
-curl -L https://github.com/saltydogtechnology/sops-diff/releases/download/v0.1.0/sops-diff-v0.1.0-darwin-arm64.tar.gz | tar xz
+curl -L https://github.com/saltydogtechnology/sops-diff/releases/download/v0.1.1/sops-diff-v0.1.1-darwin-arm64.tar.gz | tar xz
 sudo mv sops-diff-darwin-arm64 /usr/local/bin/sops-diff
 ```
 
@@ -59,6 +63,9 @@ sops-diff --summary secret1.enc.yaml secret2.enc.yaml
 
 # Compare different formats
 sops-diff --format=json config1.enc.json config2.enc.json
+
+# Save output to file
+sops-diff secret1.enc.yaml secret2.enc.yaml --output diff.txt
 ```
 
 ### Git Integration
@@ -69,6 +76,16 @@ sops-diff --git HEAD:secrets.enc.yaml secrets.enc.yaml
 
 # Compare between branches
 sops-diff main:secrets.enc.yaml feature/new-secret:secrets.enc.yaml
+```
+
+### Resolving Merge Conflicts
+
+```bash
+# Display decrypted conflict with syntax highlighting
+sops-diff git-conflicts conflicts.enc.yaml
+
+# Save to a file for editing
+sops-diff git-conflicts conflicts.enc.yaml --output resolved.yaml
 ```
 
 ### Using External Diff Tools
@@ -89,58 +106,41 @@ sops-diff --diff-tool=meld secret1.enc.yaml secret2.enc.yaml
 
 ## Setting Up Git Integration
 
-### 1. Add a Git Attributes Configuration
+### 1. Configure Git for Diff and Merge Operations
+
+```bash
+# Set up Git integration
+sops-diff setup-git-merge-tool
+```
+
+### 2. Add a Git Attributes Configuration
 
 Add the following to your repository's `.gitattributes` file:
 
 ```
-*.enc.json diff=sopsdiffer
-*.enc.yaml diff=sopsdiffer
-*.enc.yml diff=sopsdiffer
-*.enc.env diff=sopsdiffer
+*.enc.json diff=sopsdiffer merge=sops
+*.enc.yaml diff=sopsdiffer merge=sops
+*.enc.yml diff=sopsdiffer merge=sops
+*.enc.env diff=sopsdiffer merge=sops
 ```
 
-### 2. Configure Git to Use SOPS-Diff
+### 3. Configure Git to Use SOPS-Diff for Diff Operations
 
    ```bash
-   # Option 1: Full diff (shows all values)
+   # Option: Full diff (shows all values)
    git config diff.sopsdiffer.command "sops-diff --git"
    ```
 
    ```bash
-   # Option 2: Summary mode (only shows which keys changed without revealing values)
-   # This is more secure for public code reviews or when working in environments
-   # where you want to avoid exposing sensitive data
+   # Alternative: Summary mode (only keys changed without values)
    git config diff.sopsdiffer.command "sops-diff --git --summary"
    ```
 
-After this setup, `git diff` will automatically use SOPS-Diff for files matching the patterns.
-
-## CI/CD Integration
-
-### GitHub Actions
-
-A sample GitHub Actions workflow is provided in `examples/github/workflows/sops-diff.yaml` that:
-
-1. Detects changes to encrypted files in pull requests
-2. Generates diffs using SOPS-Diff
-3. Posts a summary of changes as a PR comment
-
-See the [GitHub Workflow](./examples/github/workflows/sops-diff.yaml) file for details.
-
-### GitLab CI
-
-A sample GitLab CI configuration is provided in `examples/gitlab/sops-diff.yaml` that:
-
-1. Detects changes to encrypted files in merge requests
-2. Generates diffs using SOPS-Diff
-3. Saves the summary of changes as an artifact
-
-See the [GitLab CI Configuration](./examples/gitlab/sops-diff.yaml) file for details.
+After this setup, `git diff` will automatically use SOPS-Diff for files matching the patterns, and merge conflicts will be handled with the `git mergetool --tool=sops` command.
 
 ## Security Considerations
 
-- SOPS-Diff does not write decrypted content to disk
+- SOPS-Diff does not write decrypted content to disk by default
 - In CI/CD environments, use `--summary` mode to avoid exposing sensitive values
 - The tool works with your existing SOPS encryption/decryption configuration (AWS KMS, GCP KMS, age, PGP)
 - Ensure proper access controls for CI/CD environments that need to decrypt files
