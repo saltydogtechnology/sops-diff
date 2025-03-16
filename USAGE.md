@@ -19,7 +19,10 @@ Flags:
   -v, --version              version for sops-diff
 
 Commands:
-  git-conflicts FILE        Resolve Git merge conflicts in SOPS-encrypted files
+   git-conflicts FILE        Resolve Git merge conflicts in SOPS-encrypted files
+      Flags:
+         --view-as-diff        View conflicts in Git diff format rather than with conflict markers
+         -o, --output string   Save output to file instead of printing to stdout
   setup-git-merge-tool      Configure Git to use sops-diff for merge conflict resolution
 ```
 
@@ -77,6 +80,9 @@ When you encounter a merge conflict in an encrypted file:
 ```bash
 # By default, output to terminal with colored markers
 sops-diff git-conflicts conflicts.enc.yaml
+
+# View conflicts in a Git diff-like format instead of conflict markers
+sops-diff git-conflicts conflicts.enc.yaml --view-as-diff
 
 # Save decrypted conflict to a file for editing
 sops-diff git-conflicts conflicts.enc.yaml --output conflicts.decrypted.yaml

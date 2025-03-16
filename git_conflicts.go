@@ -92,8 +92,57 @@ func getMergingBranchName() string {
 	return "incoming changes from " + branchName
 }
 
+// mergeVersions uses git merge-file to merge changes from both versions
+func mergeVersions(oursContent, theirsContent string) (string, error) {
+	// Create a temporary directory for Git merge
+	tmpDir, err := ioutil.TempDir("", "sops-merge-*")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary directory: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Write our version to a temporary file
+	oursPath := filepath.Join(tmpDir, "ours")
+	err = ioutil.WriteFile(oursPath, []byte(oursContent), 0600)
+	if err != nil {
+		return "", fmt.Errorf("failed to write 'ours' version: %w", err)
+	}
+
+	// Write their version to a temporary file
+	theirsPath := filepath.Join(tmpDir, "theirs")
+	err = ioutil.WriteFile(theirsPath, []byte(theirsContent), 0600)
+	if err != nil {
+		return "", fmt.Errorf("failed to write 'theirs' version: %w", err)
+	}
+
+	// Create an empty base file
+	basePath := filepath.Join(tmpDir, "base")
+	err = ioutil.WriteFile(basePath, []byte{}, 0600)
+	if err != nil {
+		return "", fmt.Errorf("failed to write 'base' version: %w", err)
+	}
+
+	// Use git merge-file to merge the changes
+	cmd := exec.Command("git", "merge-file", oursPath, basePath, theirsPath)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		// git merge-file returns an error if there are conflicts, but this is expected
+		// We still want to proceed and read the merged content
+		fmt.Fprintf(os.Stderr, "Note: Git merge-file detected conflicts (this is expected)\n")
+	}
+
+	// Read the merged result from the "ours" file (which now contains the merge result)
+	mergedContent, err := ioutil.ReadFile(oursPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read merged file: %w", err)
+	}
+
+	return string(mergedContent), nil
+}
+
 // HandleGitConflicts resolves Git merge conflicts in SOPS encrypted files
-func HandleGitConflicts(filePath string, options DiffOptions) error {
+func HandleGitConflicts(filePath string, options DiffOptions, viewAsDiff bool) error {
 	// Read the file with conflicts
 	content, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -143,13 +192,20 @@ func HandleGitConflicts(filePath string, options DiffOptions) error {
 		return fmt.Errorf("failed to decrypt 'theirs' version: %w", err)
 	}
 
-	// Get branch names
-	currentBranch := getCurrentBranchName()
-	mergingBranch := getMergingBranchName()
-
-	// Create the merged decrypted file with conflict markers and detailed branch info
-	mergedContent := fmt.Sprintf("<<<<<<< HEAD (%s branch)\n%s=======\n%s>>>>>>> OTHER (%s)\n",
-		currentBranch, string(oursDecrypted), string(theirsDecrypted), mergingBranch)
+	// Auto-merge logic based on flags
+	var mergedContent string
+	if viewAsDiff {
+		mergedContent, err = mergeVersions(string(oursDecrypted), string(theirsDecrypted))
+		if err != nil {
+			return fmt.Errorf("failed to merge versions: %w", err)
+		}
+	} else {
+		// Default behavior: show conflict markers
+		currentBranch := getCurrentBranchName()
+		mergingBranch := getMergingBranchName()
+		mergedContent = fmt.Sprintf("<<<<<<< HEAD (%s branch)\n%s=======\n%s>>>>>>> OTHER (%s)\n",
+			currentBranch, string(oursDecrypted), string(theirsDecrypted), mergingBranch)
+	}
 
 	// Display helpful information
 	cyan := color.New(color.FgCyan).SprintFunc()
@@ -167,6 +223,7 @@ func HandleGitConflicts(filePath string, options DiffOptions) error {
 		fmt.Println(green("✓"), cyan("Created decrypted conflict file:"), options.OutputFile)
 		fmt.Println(yellow("Instructions:"))
 		fmt.Println("1. Edit the decrypted file to resolve conflicts")
+		fmt.Println("   (use --view-as-diff to git like view)")
 		fmt.Println("2. Once resolved, encrypt it using sops:")
 		fmt.Printf("   sops -e -i %s\n", options.OutputFile)
 		fmt.Println("3. Replace the original file with the encrypted version:")

@@ -20,7 +20,7 @@ import (
 
 const (
 	// Version of the sops-diff utility
-	Version = "0.1.1"
+	Version = "0.2.0"
 )
 
 var (
@@ -157,10 +157,14 @@ Examples:
 				GitConflicts:     true,
 				OutputFile:       localOutputFile,
 			}
-			return HandleGitConflicts(args[0], options)
+
+			viewAsDiff, _ := cmd.Flags().GetBool("view-as-diff")
+
+			return HandleGitConflicts(args[0], options, viewAsDiff)
 		},
 	}
 	conflictsCmd.Flags().StringP("output", "o", "", "Save output to file instead of printing to stdout")
+	conflictsCmd.Flags().Bool("view-as-diff", false, "View as git diff")
 	rootCmd.AddCommand(conflictsCmd)
 
 	if err := rootCmd.Execute(); err != nil {
