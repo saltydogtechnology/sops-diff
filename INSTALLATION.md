@@ -20,7 +20,7 @@ Before installing SOPS-Diff, ensure you have:
 #### Linux
 
 ```bash
-export SOPS_DIFF_VERSION=v0.1.1
+export SOPS_DIFF_VERSION=v0.2.0
 ```
 
 ```bash
@@ -38,7 +38,7 @@ sudo mv sops-diff-linux-arm64 /usr/local/bin/sops-diff
 #### macOS
 
 ```bash
-export SOPS_DIFF_VERSION=v0.1.1
+export SOPS_DIFF_VERSION=v0.2.0
 ```
 
 ```bash
@@ -52,9 +52,6 @@ curl -L https://github.com/saltydogtechnology/sops-diff/releases/download/$SOPS_
 chmod +x sops-diff-darwin-arm64
 sudo mv sops-diff-darwin-arm64 /usr/local/bin/sops-diff
 
-# Alternatively, using Homebrew
-brew tap saltydogtechnology/sops-diff
-brew install sops-diff
 ```
 
 #### Windows

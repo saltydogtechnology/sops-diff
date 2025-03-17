@@ -90,8 +90,11 @@ After running these commands, Git will report a merge conflict in the respective
 # View conflict in console with colored output (default)
 sops-diff git-conflicts test_secrets.yaml  # for YAML
 
+# View conflicts in Git diff format rather than with conflict markers
+sops-diff git-conflicts test_secrets.yaml --view-as-diff
+
 # Or save to file with --output flag
-sops-diff git-conflicts test_secrets.yaml --output resolved.yaml
+sops-diff git-conflicts test_secrets.yaml --output diff.yaml
 ```
 
 ### JSON Example
@@ -180,8 +183,11 @@ After running these commands, Git will report a merge conflict in the respective
 # View conflict in console with colored output (default)
 sops-diff git-conflicts test_secrets.json  # for JSON
 
+# View conflicts in Git diff format
+sops-diff git-conflicts test_secrets.json --view-as-diff
+
 # Or save to file with --output flag
-sops-diff git-conflicts test_secrets.yaml --output resolved.yaml
+sops-diff git-conflicts test_secrets.yaml --output diff.yaml
 ```
 
 ### ENV Example
@@ -259,7 +265,7 @@ After running these commands, Git will report a merge conflict in the respective
 sops-diff git-conflicts test_secrets.env   # for ENV
 
 # Or save to file with --output flag
-sops-diff git-conflicts test_secrets.yaml --output resolved.yaml
+sops-diff git-conflicts test_secrets.yaml --output diff.yaml
 ```
 
 The output will show branch names where available, making it easier to identify changes:
@@ -322,6 +328,7 @@ Git should invoke SOPS-Diff to help resolve the conflict.
 ## Expected Outcomes
 
 - **Conflict Resolution**: The tool should decrypt both versions of the conflicted file and present them in a decrypted form for easier resolution.
+- **Diff View Option**: When using `--view-as-diff`, the tool should use Git's merge-file to provide a more Git-like conflict view.
 - **Colored Output**: When using the standard output (not saving to file), the conflict markers and content will be colorized for better readability.
 - **Git Integration**: Git should seamlessly invoke SOPS-Diff when a conflict is detected in encrypted files.
 - **Format Support**: The tool should work correctly for all supported formats (YAML, JSON, ENV).

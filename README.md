@@ -34,19 +34,19 @@ For detailed installation instructions for different platforms, please refer to 
 
 ```
 # Linux (amd64)
-curl -L https://github.com/saltydogtechnology/sops-diff/releases/download/v0.1.1/sops-diff-v0.1.1-linux-amd64.tar.gz | tar xz
+curl -L https://github.com/saltydogtechnology/sops-diff/releases/download/v0.2.0/sops-diff-v0.2.0-linux-amd64.tar.gz | tar xz
 sudo mv sops-diff-linux-amd64 /usr/local/bin/sops-diff
 ```
 
 ```
 # macOS (amd64)
-curl -L https://github.com/saltydogtechnology/sops-diff/releases/download/v0.1.1/sops-diff-v0.1.1-darwin-amd64.tar.gz | tar xz
+curl -L https://github.com/saltydogtechnology/sops-diff/releases/download/v0.2.0/sops-diff-v0.2.0-darwin-amd64.tar.gz | tar xz
 sudo mv sops-diff-darwin-amd64 /usr/local/bin/sops-diff
 ```
 
 ```
 # macOS (Apple Silicon)
-curl -L https://github.com/saltydogtechnology/sops-diff/releases/download/v0.1.1/sops-diff-v0.1.1-darwin-arm64.tar.gz | tar xz
+curl -L https://github.com/saltydogtechnology/sops-diff/releases/download/v0.2.0/sops-diff-v0.2.0-darwin-arm64.tar.gz | tar xz
 sudo mv sops-diff-darwin-arm64 /usr/local/bin/sops-diff
 ```
 
@@ -83,6 +83,9 @@ sops-diff main:secrets.enc.yaml feature/new-secret:secrets.enc.yaml
 ```bash
 # Display decrypted conflict with syntax highlighting
 sops-diff git-conflicts conflicts.enc.yaml
+
+# View conflicts in Git diff format rather than with conflict markers
+sops-diff git-conflicts conflicts.enc.yaml --view-as-diff
 
 # Save to a file for editing
 sops-diff git-conflicts conflicts.enc.yaml --output resolved.yaml
