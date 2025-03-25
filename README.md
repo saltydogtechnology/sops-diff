@@ -75,7 +75,7 @@ sops-diff secret1.enc.yaml secret2.enc.yaml --output diff.txt
 sops-diff --git HEAD:secrets.enc.yaml secrets.enc.yaml
 
 # Compare between branches
-sops-diff main:secrets.enc.yaml feature/new-secret:secrets.enc.yaml
+sops-diff --git main:secrets.enc.yaml feature/new-secret:secrets.enc.yaml
 ```
 
 ### Resolving Merge Conflicts
